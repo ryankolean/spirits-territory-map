@@ -15,4 +15,6 @@
 - Never let a scrollable element overlap the map canvas: an `overflow: auto` sheet over the WebGL canvas blanked it in Chrome. The sheet docks below (mobile) or beside (desktop) the map.
 - Do not pass `padding` to `easeTo`; it persists and stacks onto later `fitBounds`. Use `focus()` in `MapView.tsx`.
 - Brand tokens come from the "Spirits Territory Map Brand" design system; square corners, no emojis.
-- Verification: `window.__map` is exposed in dev for headless checks (wait on `areTilesLoaded()`).
+- Verification: `npx playwright test` (six-feature acceptance suite). `window.__map` is exposed in dev builds and with `?e2e`; wait on `areTilesLoaded()`.
+- Join the master list on license number AND type; numbers repeat across types (SDD or Class C sharing with an SDM). Run `make crosscheck` after any pipeline change and read `docs/VALIDATION.md`.
+- Never measure map frame rate in default headless Chrome (software WebGL); the `phone-gpu` project uses the real GPU.

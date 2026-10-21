@@ -1,8 +1,9 @@
 name: Deploy (GitHub Pages)
 
 # Publishes the static site to https://ryankolean.github.io/spirits-territory-map
-# on every push to main. Map data (public/data) is built locally by the Python
-# pipeline and committed; CI only builds the front end.
+# on every push to main, after the POC acceptance tests pass. Map data
+# (public/data) is built locally by the Python pipeline and committed; CI only
+# builds and tests the front end.
 
 on:
   push:
@@ -28,7 +29,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      # Builds dist/, serves it, and runs the six-feature acceptance suite.
+      # The GPU frame-rate test skips itself here (no GPU on the runner).
+      - run: npx playwright test
+        env:
+          CI: "true"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
       - run: touch dist/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

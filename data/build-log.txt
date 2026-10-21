@@ -1,0 +1,12 @@
+2025 SDD: 5709 licenses, $1,518,294,979.57
+2025 C: 8881 licenses, $251,587,051.01
+2025 B-Hotel: 416 licenses, $19,487,420.12
+master list (October 16, 2026): 35793 license numbers
+2021: 14029 rows, $1,937,169,145.58 (footer $1,937,169,145.58)
+2022: 14120 rows, $1,898,717,183.58 (footer $1,898,717,183.58)
+2023: 14265 rows, $1,888,238,980.87 (footer $1,888,238,980.87)
+2024: 14446 rows, $1,895,123,976.92 (footer $1,895,123,997.45)
+kept 11784 active/conditional, dropped 3222 ($71,688,784 of 2025 dollars)
+features 11779; geocode quality {'Non_Exact': 2295, 'Exact': 8510, 'OSM': 629, 'ZIP': 345, 'none': 5}
+bars: {'cutoffs': [25000, 60000, 150000], 'max': 250000, 'count': 7344}
+stores: {'cutoffs': [200000, 500000, 1500000], 'max': 2000000, 'count': 4435}

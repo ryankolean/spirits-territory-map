@@ -1,0 +1,12 @@
+[project]
+name = "stm-pipeline"
+version = "0.1.0"
+description = "MLCC spirits purchase data -> static GeoJSON for the Spirits Territory Map"
+requires-python = ">=3.12"
+dependencies = [
+    "openpyxl>=3.1",
+    "requests>=2.32",
+]
+
+[tool.uv]
+package = false

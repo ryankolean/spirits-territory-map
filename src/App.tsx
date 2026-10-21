@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { About } from "./components/About";
 import { Legend } from "./components/Legend";
 import { LocateIcon } from "./components/Icons";
 import { LocationCard } from "./components/LocationCard";
@@ -49,6 +50,7 @@ export function App() {
   const [listOpen, setListOpen] = useState(false);
   const [recenter, setRecenter] = useState(0);
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const dark = useMedia("(prefers-color-scheme: dark)");
   const desktop = useMedia(DESKTOP);
 
@@ -103,7 +105,10 @@ export function App() {
   const inView = useMemo(() => {
     if (!data) return [];
     const classes = VIEW_CLASSES[view];
-    return data.locations.features.filter((f) => classes.includes(f.properties.c) && f.properties.d >= minDollars);
+    // "Any" keeps every license, including the few with net-negative dollars (refunds).
+    return data.locations.features.filter(
+      (f) => classes.includes(f.properties.c) && (minDollars === 0 || f.properties.d >= minDollars),
+    );
   }, [data, view, minDollars]);
 
   const distance = useMemo(() => {
@@ -177,6 +182,30 @@ export function App() {
   };
 
   // A row pans to its pin; zoom only far enough that pins are not clustered.
+  // Shareable links: #l=<license number> opens that location's card.
+  const linked = useRef(false);
+  useEffect(() => {
+    if (!data || linked.current) return;
+    linked.current = true;
+    const id = new URLSearchParams(location.hash.slice(1)).get("l");
+    const f = id && data.locations.features.find((x) => x.properties.id === id);
+    if (f) goTo(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  useEffect(() => {
+    if (!data || !linked.current) return;
+    const url = `${location.pathname}${location.search}${selectedId ? `#l=${selectedId}` : ""}`;
+    history.replaceState(null, "", url);
+  }, [selectedId, data]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !aboutOpen) setSelectedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [aboutOpen]);
+
   const pickRow = (id: string) => {
     const f = visible.find((x) => x.properties.id === id);
     if (f) goTo(f, 9);
@@ -196,7 +225,11 @@ export function App() {
       <header className="header">
         <h1>Spirits Territory Map</h1>
         <SearchBar search={search} onPick={pickSearch} />
+        <button className="header-about label-sm" onClick={() => setAboutOpen(true)}>
+          About
+        </button>
       </header>
+      <About open={aboutOpen} meta={data?.meta ?? null} onClose={() => setAboutOpen(false)} />
       <main className="stage">
         <div className="map-wrap">
           {data && (

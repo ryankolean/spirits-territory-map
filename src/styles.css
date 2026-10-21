@@ -159,12 +159,14 @@ button {
 }
 
 .header {
+  position: relative;
+  z-index: 20; /* search results drop over the side panel */
   background: var(--surface-oak);
   color: var(--ink-on-oak);
   display: flex;
   align-items: center;
-  padding: 0 var(--space-4);
-  z-index: 3;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) 0 var(--space-4);
 }
 .header h1 {
   font: 300 22px/1 var(--font-display);
@@ -376,6 +378,7 @@ button {
 
 .min-chips {
   margin-top: var(--space-1);
+  flex-wrap: wrap; /* five chips overflow the 360px panel and a phone's sheet */
 }
 .min-chips .chip {
   min-height: 36px;
@@ -586,6 +589,79 @@ button {
 }
 .card .note {
   margin: var(--space-2) 0 0;
+}
+.card-links {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-1);
+}
+.card-links a {
+  color: var(--bronze);
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.card-links a:hover,
+.card-links .text-button:hover {
+  text-decoration: underline;
+}
+
+.header-about {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-on-oak);
+  min-height: 44px;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  cursor: pointer;
+  flex: none;
+}
+
+.about {
+  max-width: 560px;
+  width: calc(100% - 32px);
+  max-height: calc(100% - 48px);
+  padding: var(--space-5);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--surface-alt);
+  color: var(--ink);
+  box-shadow: var(--shadow-sheet);
+}
+.about::backdrop {
+  background: rgba(12, 8, 7, 0.5);
+}
+.about h2 {
+  padding-right: 44px;
+  margin-bottom: var(--space-3);
+}
+.about p,
+.about li {
+  margin: 0 0 var(--space-3);
+}
+.about ul {
+  padding-left: var(--space-5);
+  margin: 0 0 var(--space-3);
+}
+.about a {
+  color: var(--bronze);
+}
+.about .close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--ink);
 }
 
 .loading {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CLASS_LABEL, type Location, type Meta } from "../lib/data";
 import { percentChange, titleCase } from "../lib/format";
 import { ArrowDownRight, ArrowUpRight, CloseIcon, Dash } from "./Icons";
@@ -20,6 +21,20 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
   const change = percentChange(p.d, prior);
   const priorYear = meta.years[meta.years.length - 2];
   const showLicensee = p.o && p.o.toUpperCase() !== p.n.toUpperCase();
+  const [shared, setShared] = useState(false);
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(p.a)}`;
+  const share = async () => {
+    const url = `${window.location.origin}${window.location.pathname}#l=${p.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: p.n, text: `${p.n}, ${p.a}`, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        setShared(true);
+      }
+    } catch {
+      // Share sheet dismissed or clipboard blocked; nothing to report.
+    }
+  };
 
   let delta;
   if (change == null) {
@@ -91,6 +106,14 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
       {p.q === 0 && (
         <p className="small muted note">Pin placed at the ZIP code center; the street address did not geocode.</p>
       )}
+      <div className="card-links">
+        <a className="label-sm" href={directions} target="_blank" rel="noreferrer">
+          Directions
+        </a>
+        <button className="text-button label-sm" onClick={share}>
+          {shared ? "Link copied" : "Share"}
+        </button>
+      </div>
     </article>
   );
 }

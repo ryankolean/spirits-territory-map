@@ -71,7 +71,7 @@ function pinRadius(max: number, extra = 0): ExpressionSpecification {
   // Square-root scale up to the view's 99th percentile: 10px to 32px diameter
   // from zoom 12, smaller at metro zoom so a 10-mile radius stays legible.
   const byDollars = (lo: number, hi: number): ExpressionSpecification => [
-    "interpolate", ["linear"], ["sqrt", ["get", "d"]], 0, lo + extra, Math.sqrt(max), hi + extra,
+    "interpolate", ["linear"], ["sqrt", ["max", 0, ["get", "d"]]], 0, lo + extra, Math.sqrt(max), hi + extra,
   ];
   return ["interpolate", ["linear"], ["zoom"], 9, byDollars(3, 10), 12, byDollars(5, 16)];
 }
@@ -260,8 +260,10 @@ export function MapView(props: Props) {
       attributionControl: { compact: true },
     });
     map.current = m;
-    // Handle for headless verification scripts (wait for idle, query pins).
-    if (import.meta.env.DEV) (window as unknown as { __map: maplibregl.Map }).__map = m;
+    // Handle for the acceptance tests (wait for idle, find pins); dev builds or ?e2e only.
+    if (import.meta.env.DEV || new URLSearchParams(location.search).has("e2e")) {
+      (window as unknown as { __map: maplibregl.Map }).__map = m;
+    }
     m.on("style.load", addLayers);
 
     m.on("click", "clusters", async (e) => {

@@ -27,7 +27,7 @@ export function RankedList({ ranked, onPick }: Props) {
           const change = percentChange(p.d, p.y[p.y.length - 2]);
           return (
             <li key={p.id}>
-              <button className="row" onClick={() => onPick(p.id)}>
+              <button className="row" data-id={p.id} onClick={() => onPick(p.id)}>
                 <span className="row-rank label-sm">{i + 1}</span>
                 <span className="row-main">
                   <span className="row-name">{p.n}</span>

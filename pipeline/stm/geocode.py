@@ -111,10 +111,17 @@ NOMINATIM = "https://nominatim.openstreetmap.org/search"
 UA = "spirits-territory-map/0.1 (Summit Software Solutions; one-time backfill)"
 
 
-def _nominatim(params: dict) -> tuple[str, str] | None:
+MI_VIEWBOX = (-90.5, 41.6, -82.1, 48.4)
+
+
+def _nominatim(params: dict, box=MI_VIEWBOX) -> tuple[str, str] | None:
+    """Bounded to `box` (west, south, east, north): unbounded, "Bedford, MI"
+    landed in Mississippi and "Lake City, MI" in Missouri."""
     time.sleep(1.1)  # usage policy: max 1 request per second
+    w, s, e, n = box
     r = requests.get(NOMINATIM, params={**params, "format": "jsonv2", "limit": 1,
-                                        "countrycodes": "us"},
+                                        "countrycodes": "us", "viewbox": f"{w},{n},{e},{s}",
+                                        "bounded": 1},
                      headers={"User-Agent": UA}, timeout=30)
     r.raise_for_status()
     hits = r.json()
@@ -149,6 +156,44 @@ def backfill(cache: dict[str, dict], cache_path: Path, keys=None) -> None:
             save_cache(cache_path, cache)
             print(f"  {i}/{len(misses)}", file=sys.stderr)
     save_cache(cache_path, cache)
+
+
+def repair(cache: dict[str, dict], cache_path: Path, wanted: dict[str, str]) -> int:
+    """Re-place OSM and ZIP-center pins that fall outside their listed county.
+
+    `wanted` maps address key -> MLCC county. Queries are bounded to the
+    county's box and accepted only inside the county polygon (pass 5 street,
+    pass 6 ZIP center); otherwise the address is marked Rejected and gets no pin.
+    Census matches are left alone.
+    """
+    from stm import counties
+
+    polys = counties.load()
+    todo = []
+    for k, county in wanted.items():
+        r = cache.get(k)
+        g = polys.get(counties.norm_county(county))
+        if not r or not g or r["status"] != "Match" or r["quality"] not in ("OSM", "ZIP"):
+            continue
+        if not counties.contains(g, float(r["lng"]), float(r["lat"])):
+            todo.append((k, g))
+    print(f"repair: {len(todo)} OSM/ZIP pins outside their county", file=sys.stderr)
+    for k, g in todo:
+        street, city, _state, zip5 = split_address(k)
+        box = counties.bbox(g)
+        rec = {"key": k, "status": "Rejected", "quality": "", "matched": "", "lat": "", "lng": "", "pass": 5}
+        for params, quality, pass_no in (
+            ({"street": clean_street(street), "city": city, "postalcode": zip5}, "OSM", 5),
+            ({"postalcode": zip5}, "ZIP", 6),
+        ):
+            hit = _nominatim(params, box)
+            if hit and counties.contains(g, float(hit[1]), float(hit[0])):
+                rec = {"key": k, "status": "Match", "quality": quality, "matched": "",
+                       "lat": hit[0], "lng": hit[1], "pass": pass_no}
+                break
+        cache[k] = rec
+    save_cache(cache_path, cache)
+    return len(todo)
 
 
 def geocode(addresses: list[str], cache_path: Path) -> dict[str, dict]:

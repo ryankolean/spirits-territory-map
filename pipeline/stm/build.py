@@ -15,7 +15,7 @@ from pathlib import Path
 
 import openpyxl
 
-from stm.geocode import geocode, norm_key
+from stm.geocode import geocode, norm_key, repair
 from stm.history import ALL_SALES_PDF, parse_pdf
 from stm.parse import FILES_2025, parse_file
 
@@ -29,11 +29,14 @@ VIEWS = {"bars": {"C", "H"}, "stores": {"S"}}
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-def load_master() -> tuple[dict[str, dict], str]:
-    """The master list is whichever license-list workbook has a Number column.
+def load_master() -> tuple[dict[tuple[str, str], dict], str]:
+    """{(license number, license type): row} from the master license list.
 
-    MLCC's licensing page has the Master List and Social District links
-    swapped, so the filename cannot be trusted.
+    The master list is whichever license-list workbook has Number and Status
+    columns: MLCC's licensing page has the Master List and Social District
+    links swapped, so the filename cannot be trusted. Numbers are not unique
+    across types (an SDD or Class C often shares its number with an SDM beer
+    and wine license, sometimes another business's), so the type is part of the key.
     """
     for path in sorted(RAW.glob("*.xlsx")):
         ws = openpyxl.load_workbook(path, read_only=True, data_only=True).worksheets[0]
@@ -47,12 +50,14 @@ def load_master() -> tuple[dict[str, dict], str]:
                 num = str(r[H["Number"]] or "").strip()
                 if not num:
                     continue
-                # 144 numbers repeat; an active row wins over an escrowed one.
-                if out.get(num, {}).get("status") in KEEP_STATUS:
+                key = (num, str(r[H["Type (Deprecated)"]] or "").strip())
+                if out.get(key, {}).get("status") in KEEP_STATUS:
                     continue
-                out[num] = {"status": r[H["Status"]], "dba": r[H["DBA"]] or None}
+                out[key] = {"status": r[H["Status"]], "dba": r[H["DBA"]] or None,
+                            "lara": r[H["LARA Business ID"]], "address": r[H["Address"]],
+                            "county": r[H["County: County"]]}
             return out, str(banner).replace("Updated ", "")
-    sys.exit("no license-list workbook with a Number column found in data/raw")
+    sys.exit("no license-list workbook with Number and Status columns found in data/raw")
 
 
 def nice(x: float) -> int:
@@ -79,9 +84,9 @@ def main() -> None:
         recs.update(r)
 
     master, list_date = load_master()
-    p(f"master list ({list_date}): {len(master)} license numbers")
+    p(f"master list ({list_date}): {len(master)} (number, type) pairs")
 
-    history: dict[int, dict[str, float]] = {}
+    history: dict[int, dict[tuple[str, str], float]] = {}
     for y, rel in ALL_SALES_PDF.items():
         h, s = parse_pdf(RAW / rel)
         if not s["reconciled"]:
@@ -89,15 +94,18 @@ def main() -> None:
         history[y] = h
         p(f"{y}: {s['rows']} rows, ${s['sum']:,.2f} (footer ${s['adj_sales']:,.2f})")
 
-    cache = geocode(sorted({L.address for L in recs.values() if L.address}),
-                    ROOT / "data" / "cache" / "geocode.csv")
+    cache_path = ROOT / "data" / "cache" / "geocode.csv"
+    cache = geocode(sorted({L.address for L in recs.values() if L.address}), cache_path)
 
     kept, dropped = [], []
     for L in recs.values():
-        m = master.get(L.license)
+        m = master.get((L.license, L.license_type))
         (kept if m and m["status"] in KEEP_STATUS else dropped).append(L)
     p(f"kept {len(kept)} active/conditional, dropped {len(dropped)} "
       f"(${sum(L.dollars for L in dropped):,.0f} of 2025 dollars)")
+
+    fixed = repair(cache, cache_path, {norm_key(L.address): L.county for L in kept if L.address})
+    p(f"repaired {fixed} OSM/ZIP pins that fell outside their listed county")
 
     # 2025 dollars of dropped licenses at the same address and class, so a
     # new owner's partial year can be read against the location's history.
@@ -112,9 +120,9 @@ def main() -> None:
             geo["none"] += 1
             continue
         geo[g["quality"]] += 1
-        series = [history[y].get(L.license) for y in YEARS[:-1]] + [L.dollars]
+        series = [history[y].get((L.license, L.klass)) for y in YEARS[:-1]] + [L.dollars]
         series = [round(v) if v is not None else None for v in series]
-        m = master[L.license]
+        m = master[(L.license, L.license_type)]
         props = {
             "id": L.license,
             "n": m["dba"] or L.dba or L.account,

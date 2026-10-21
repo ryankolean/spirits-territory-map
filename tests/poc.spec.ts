@@ -347,6 +347,9 @@ test.describe("4. Location card", () => {
     await expect(page.locator(".card .name")).toHaveText(target.properties.n);
     await mapIdle(page);
     expect(await pinVisible(page, target.properties.id)).toBe(true);
+    // Zoomed in on the store, even though the rep's location (and its
+    // radius) loads at the same time.
+    expect(await page.evaluate(() => (window as any).__map.getZoom())).toBeGreaterThanOrEqual(13.5);
     await page.locator(".card .close").click();
     await expect(page.locator(".card")).toBeHidden();
   });
@@ -401,10 +404,12 @@ test.describe("6. Search: business or city, fuzzy, jumps the map", () => {
     await page.keyboard.press("Enter");
     await expect(page.locator(".card .name")).toHaveText("TOTAL WINE");
     await expect(page.locator(".card .eyebrow")).toContainText("L-000435184");
+    await expect(page.locator(".count")).toContainText("in view"); // outside the radius, so the radius clears
     // On phones the card hides the controls, so check the toggle state, not its visibility.
     await expect(page.locator(".controls button.chip", { hasText: "Stores" })).toHaveAttribute("aria-pressed", "true");
     await mapIdle(page);
     expect(await pinVisible(page, "L-000435184")).toBe(true);
+    expect(await page.evaluate(() => (window as any).__map.getZoom())).toBeGreaterThanOrEqual(13.5);
   });
 
   test("finds a location by licensee name when its DBA differs", async ({ page }) => {

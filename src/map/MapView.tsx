@@ -333,9 +333,10 @@ export function MapView(props: Props) {
         ],
         { padding: { ...padding, top: padding.top + 16, bottom: padding.bottom + 16 }, duration: 600 },
       );
-    } else {
-      focus(m, me, padding, Math.max(m.getZoom(), 11), 600);
     }
+    // No radius: the ring goes, the camera stays. Locating always sets a
+    // radius, and a cleared radius (chip deselected, or a search result
+    // outside it) must not pull the map back to the rep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.me, props.radiusMiles, props.recenter]);
 
@@ -345,6 +346,12 @@ export function MapView(props: Props) {
     const m = map.current;
     if (!m) return;
     const keepSelectedInView = () => {
+      // Mid-animation (a search or link zooming in), re-check once it lands;
+      // refitting now would freeze the zoom wherever the animation had reached.
+      if (m.isMoving()) {
+        m.once("moveend", keepSelectedInView);
+        return;
+      }
       const { selectedId, locations, padding: pad } = latest.current;
       const f = selectedId && locations.features.find((x) => x.properties.id === selectedId);
       if (!f) return;
@@ -357,6 +364,7 @@ export function MapView(props: Props) {
     m.on("resize", keepSelectedInView);
     return () => {
       m.off("resize", keepSelectedInView);
+      m.off("moveend", keepSelectedInView);
     };
   }, [props.selectedId, props.padding.bottom]);
 

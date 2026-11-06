@@ -14,11 +14,11 @@ The six MVP features from the spec, each covered by `tests/poc.spec.ts`:
 | Feature | What it does |
 | --- | --- |
 | Map | One pin per active license, sized and colored by 2025 dollars; clusters with summed dollars at zoom 8 and below |
-| Near me | Locate button, 5 / 10 / 25 mile ring; the radius filters map and list |
+| Near me | Locate button, 5 / 10 / 25 mile ring; the radius filters map and list. A search result can be the center instead |
 | Filters | Bars (Class C, B-Hotel) or stores (SDD), plus minimum-dollar chips |
 | Location card | Name, licensee, address, license, dollars, year-over-year change, five-year trend, rank; directions and share links |
 | Ranked list | Locations in the radius (or the map view) by dollars; a row opens its pin |
-| Search | Business (DBA or licensee) or city, prefix match; jumps the map |
+| Search | Business (DBA or licensee), city or license number, prefix match; jumps the map |
 
 Also: an About panel with the data caveats, shareable `#l=<license>` links, offline fallback via a service worker, installable as a phone app.
 

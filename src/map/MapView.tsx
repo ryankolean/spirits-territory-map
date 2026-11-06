@@ -38,8 +38,10 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   me: LngLat | null;
+  /** Where the radius is measured from: the rep, or a searched place. */
+  center: LngLat | null;
   radiusMiles: number | null;
-  /** Bumped to re-center on `me` even when it has not moved. */
+  /** Bumped to re-center on `center` even when it has not moved. */
   recenter: number;
   padding: Padding;
   dark: boolean;
@@ -118,10 +120,10 @@ export function MapView(props: Props) {
 
   const applyRing = () => {
     const m = map.current;
-    const { me, radiusMiles } = latest.current;
+    const { me, center, radiusMiles } = latest.current;
     (m?.getSource("ring") as GeoJSONSource | undefined)?.setData(
-      me && radiusMiles
-        ? { type: "FeatureCollection", features: [circle(me, radiusMiles)] }
+      center && radiusMiles
+        ? { type: "FeatureCollection", features: [circle(center, radiusMiles)] }
         : { type: "FeatureCollection", features: [] },
     );
     (m?.getSource("me") as GeoJSONSource | undefined)?.setData(
@@ -315,15 +317,15 @@ export function MapView(props: Props) {
       map.current.setFilter("selected", ["==", ["get", "id"], props.selectedId ?? ""]);
   }, [props.selectedId]);
 
-  // Ring, marker and framing follow the rep's position and radius.
+  // Ring, marker and framing follow the radius center and radius.
   useEffect(() => {
     const m = map.current;
     if (!m) return;
     applyRing();
-    const { me, radiusMiles, padding } = props;
-    if (!me) return;
+    const { center, radiusMiles, padding } = props;
+    if (!center) return;
     if (radiusMiles) {
-      const ring = circle(me, radiusMiles).geometry.coordinates[0] as LngLat[];
+      const ring = circle(center, radiusMiles).geometry.coordinates[0] as LngLat[];
       const lngs = ring.map((c) => c[0]);
       const lats = ring.map((c) => c[1]);
       m.fitBounds(
@@ -338,7 +340,7 @@ export function MapView(props: Props) {
     // radius, and a cleared radius (chip deselected, or a search result
     // outside it) must not pull the map back to the rep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.me, props.radiusMiles, props.recenter]);
+  }, [props.me, props.center, props.radiusMiles, props.recenter]);
 
   // Keep the selected pin in the clear part of the map: on selection, and
   // again when the map shrinks because the sheet grew to hold the card.

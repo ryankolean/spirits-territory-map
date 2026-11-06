@@ -26,14 +26,20 @@ interface Entry {
 }
 
 /**
- * Prefix match on DBA, licensee and city: every query word must start some
- * word of the entry ("roy oak" finds "Royal Oak"). Ranked by dollars.
+ * Prefix match on DBA, licensee, city and license number: every query word
+ * must start some word of the entry ("roy oak" finds "Royal Oak"; "L-000109466",
+ * "000109466" and "109466" find that license). Ranked by dollars.
  */
 export function buildIndex(locations: Location[]) {
   const entries: Entry[] = locations.map((location) => {
     const city = cityOf(location.properties.a);
     const p = location.properties;
-    return { location, city, words: norm(`${p.n} ${p.o} ${city}`).split(" ") };
+    const digits = p.id.replace(/\D/g, "");
+    return {
+      location,
+      city,
+      words: [...norm(`${p.n} ${p.o} ${city}`).split(" "), "l", digits, digits.replace(/^0+/, "")],
+    };
   });
   const cities = new Map<string, number>();
   for (const e of entries) if (e.city) cities.set(e.city, (cities.get(e.city) ?? 0) + 1);

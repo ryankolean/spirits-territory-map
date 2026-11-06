@@ -259,6 +259,29 @@ test.describe("2. Near me: locate, radius ring, radius applies to map and list",
     expect(inside).toBe(true);
   });
 
+  test("a searched city becomes the radius center, and locating returns it to the rep", async ({ page }) => {
+    await located(page);
+    await page.locator(".search-input").fill("traverse ci");
+    await page.locator(".search-results li", { hasText: "City ·" }).first().click();
+    await expect(page.locator(".count")).toContainText("bars in view");
+    await page.locator("button.chip", { hasText: /^10 mi$/ }).click();
+    await mapIdle(page);
+    const tc = features.filter((f) => /, traverse city,/i.test(f.properties.a)).map((f) => f.geometry.coordinates);
+    const xs = tc.map((c) => c[0]);
+    const ys = tc.map((c) => c[1]);
+    const at: [number, number] = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    const expected = features.filter((f) => isBar(f) && miles(at, f.geometry.coordinates) <= 10);
+    await expect(page.locator(".count")).toHaveText(
+      `${expected.length.toLocaleString("en-US")} bars within 10 mi of Traverse City`,
+    );
+    expect(new Set(await sourceIds(page))).toEqual(new Set(expected.map((f) => f.properties.id)));
+    expect(await page.evaluate(() => (window as any).__map.getSource("ring").serialize().data.features.length)).toBe(1);
+    await page.locator("button.locate").click();
+    await mapIdle(page);
+    const home = features.filter((f) => isBar(f) && within(f, 10));
+    await expect(page.locator(".count")).toHaveText(`${home.length.toLocaleString("en-US")} bars within 10 mi`);
+  });
+
   test.describe("without location", () => {
     test.use({ permissions: [] });
     test("opens on Detroit, statewide counts, and says so when location is refused", async ({ page }) => {
@@ -394,7 +417,7 @@ test.describe("5. Ranked list", () => {
   });
 });
 
-test.describe("6. Search: business or city, fuzzy, jumps the map", () => {
+test.describe("6. Search: business, city or license number, fuzzy, jumps the map", () => {
   test("finds a store by DBA, switches to its view and opens it", async ({ page }) => {
     await located(page);
     const target = features.find((f) => f.properties.id === "L-000435184")!; // Total Wine, Novi
@@ -425,6 +448,18 @@ test.describe("6. Search: business or city, fuzzy, jumps the map", () => {
     const word = norm(target.properties.o).split(" ").find((w) => w.length >= 6)!;
     await page.locator(".search-input").fill(word);
     await expect(page.locator(".search-results li", { hasText: target.properties.n }).first()).toBeVisible();
+  });
+
+  test("finds a location by license number, with or without the L-000 prefix", async ({ page }) => {
+    await located(page);
+    const target = features.find((f) => f.properties.id === "L-000109466")!;
+    for (const q of ["L-000109466", "000109466", "109466"]) {
+      await page.locator(".search-input").fill(q);
+      await expect(page.locator(".search-results li", { hasText: target.properties.n }).first()).toBeVisible();
+    }
+    await page.locator(".search-input").fill("l-000109466");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".card .eyebrow")).toContainText("L-000109466");
   });
 
   test("matches word prefixes in any case, and a city result fits the map to it", async ({ page }) => {

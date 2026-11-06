@@ -42,6 +42,8 @@ export function App() {
   /** Minimum latest-year dollars; 0 = any. */
   const [minDollars, setMinDollars] = useState(0);
   const [me, setMe] = useState<LngLat | null>(null);
+  /** A searched business or city the radius measures from instead of the rep. */
+  const [place, setPlace] = useState<{ at: LngLat; label: string } | null>(null);
   const [radius, setRadius] = useState<number | null>(null);
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [locating, setLocating] = useState(false);
@@ -80,6 +82,7 @@ export function App() {
         setLocating(false);
         setNotice(null);
         setMe([pos.coords.longitude, pos.coords.latitude]);
+        setPlace(null);
         setRadius((r) => r ?? 10);
         setRecenter((n) => n + 1);
       },
@@ -111,16 +114,18 @@ export function App() {
     );
   }, [data, view, minDollars]);
 
+  const center = place?.at ?? me;
   const distance = useMemo(() => {
-    if (!data || !me) return null;
+    if (!data || !center) return null;
     const out = new Map<string, number>();
     for (const f of data.locations.features) {
-      out.set(f.properties.id, milesBetween(me, f.geometry.coordinates as LngLat));
+      out.set(f.properties.id, milesBetween(center, f.geometry.coordinates as LngLat));
     }
     return out;
-  }, [data, me]);
+  }, [data, center]);
 
   const radiusOn = !!(radius && distance);
+  const radiusLabel = `within ${radius} mi${place ? ` of ${place.label}` : ""}`;
   const visible = useMemo(
     () => (radiusOn ? inView.filter((f) => distance!.get(f.properties.id)! <= radius!) : inView),
     [inView, distance, radius, radiusOn],
@@ -149,9 +154,9 @@ export function App() {
     return {
       rank: sorted.findIndex((f) => f.properties.id === selected.properties.id) + 1,
       of: sorted.length,
-      scope: radiusOn ? `within ${radius} mi` : `in ${titleCase(selected.properties.co)} County`,
+      scope: radiusOn ? radiusLabel : `in ${titleCase(selected.properties.co)} County`,
     };
-  }, [selected, visible, inView, radius, radiusOn]);
+  }, [selected, visible, inView, radiusOn, radiusLabel]);
 
   const changeView = (v: View) => {
     setView(v);
@@ -169,13 +174,19 @@ export function App() {
     setFocusRequest({ kind: "point", at: f.geometry.coordinates as LngLat, zoom, nonce: Date.now() });
   };
 
+  // A picked result also becomes the radius center, so a rep can work from
+  // a typed place instead of where the phone is. The radius starts off.
   const pickSearch = (r: SearchResult) => {
-    if (r.kind === "location") return goTo(r.location);
+    setRadius(null);
+    if (r.kind === "location") {
+      setPlace({ at: r.location.geometry.coordinates as LngLat, label: titleCase(r.location.properties.n) });
+      return goTo(r.location);
+    }
     const pts = data!.locations.features.filter((f) => r.city && f.properties.a.toLowerCase().includes(`, ${r.city.toLowerCase()},`));
     if (!pts.length) return;
     const xs = pts.map((f) => f.geometry.coordinates[0]);
     const ys = pts.map((f) => f.geometry.coordinates[1]);
-    setRadius(null);
+    setPlace({ at: [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], label: r.city });
     setSelectedId(null);
     setListOpen(false); // give the map room on phones before fitting the city
     setFocusRequest({ kind: "bounds", bounds: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], nonce: Date.now() });
@@ -217,7 +228,7 @@ export function App() {
 
   const [one, many] = VIEW_LABEL[view].noun;
   const count = ranked.length;
-  const scope = radiusOn ? `within ${radius} mi` : "in view";
+  const scope = radiusOn ? radiusLabel : "in view";
   const showList = desktop || listOpen;
 
   return (
@@ -241,6 +252,7 @@ export function App() {
               selectedId={selectedId}
               onSelect={setSelectedId}
               me={me}
+              center={center}
               radiusMiles={radius}
               recenter={recenter}
               padding={padding}
@@ -253,8 +265,8 @@ export function App() {
 
           <div className="controls" ref={controls}>
             <div className="controls-row">
-              {me && (
-                <div className="chips" role="group" aria-label="Radius">
+              {center && (
+                <div className="chips" role="group" aria-label={place ? `Radius from ${place.label}` : "Radius"}>
                   {RADII.map((r) => (
                     <button
                       key={r}

@@ -25,8 +25,8 @@ export function SearchBar({ search, onPick }: Props) {
       <input
         type="search"
         className="search-input"
-        placeholder="Search a business or city"
-        aria-label="Search a business or city"
+        placeholder="Search a business, city or license"
+        aria-label="Search a business, city or license"
         role="combobox"
         aria-expanded={open && results.length > 0}
         aria-controls="search-results"

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { About } from "./components/About";
 import { Legend } from "./components/Legend";
-import { LocateIcon } from "./components/Icons";
+import { ChevronIcon, LocateIcon } from "./components/Icons";
 import { LocationCard } from "./components/LocationCard";
 import { RankedList } from "./components/RankedList";
-import { SearchBar } from "./components/SearchBar";
+import { isTyping, SearchBar, type QuickAction } from "./components/SearchBar";
 import { loadData, VIEW_CLASSES, VIEW_LABEL, type Location, type Locations, type Meta, type View } from "./lib/data";
 import { milesBetween, type LngLat } from "./lib/geo";
-import { shortDollars, titleCase } from "./lib/format";
+import { count as fmtCount, percentChange, shortDollars, titleCase } from "./lib/format";
+import type { Sort } from "./components/RankedList";
 import { buildIndex, type SearchResult } from "./lib/search";
 import { MapView, type Bounds, type FocusRequest, type Padding } from "./map/MapView";
 
@@ -18,6 +19,13 @@ const MIN_OPTIONS: Record<View, number[]> = {
   stores: [100_000, 250_000, 500_000, 1_000_000],
 };
 const DESKTOP = "(min-width: 992px)";
+/** Days after which the license list counts as stale. */
+const STALE_DAYS = 90;
+/** Dev and e2e only: ?state=loading|error|empty|stale forces a data state for review. */
+const FORCED_STATE = (() => {
+  const q = new URLSearchParams(location.search);
+  return import.meta.env.DEV || q.has("e2e") ? q.get("state") : null;
+})();
 
 function useMedia(query: string): boolean {
   const [match, setMatch] = useState(() => window.matchMedia(query).matches);
@@ -53,14 +61,45 @@ export function App() {
   const [recenter, setRecenter] = useState(0);
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [sort, setSort] = useState<Sort>("purchases");
+  /** Minimum-dollar filter disclosure; open by default (two taps to a filtered view), remembered per browser. */
+  const [minOpen, setMinOpen] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("stm.minOpen");
+      if (v != null) return v === "1";
+    } catch {
+      // storage blocked: fall through to the default
+    }
+    return true;
+  });
+  const toggleMin = () =>
+    setMinOpen((o) => {
+      try {
+        localStorage.setItem("stm.minOpen", o ? "0" : "1");
+      } catch {
+        // storage blocked: state still toggles for this visit
+      }
+      return !o;
+    });
   const dark = useMedia("(prefers-color-scheme: dark)");
   const desktop = useMedia(DESKTOP);
 
   const controls = useRef<HTMLDivElement>(null);
   const [controlsH, setControlsH] = useState(104);
 
-  useEffect(() => {
+  const load = () => {
+    setError(null);
+    if (FORCED_STATE === "loading") return;
+    if (FORCED_STATE === "error") return setError("forced");
     loadData().then(setData, (e) => setError(String(e)));
+  };
+  useEffect(load, []);
+
+  // Skeleton only when loading is slow; a fast load goes straight to content.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 800);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -124,6 +163,13 @@ export function App() {
     return out;
   }, [data, center]);
 
+  // The Locate button's outcome label: what tapping it shows, from live data.
+  const nearMe = useMemo(() => {
+    if (!me) return null;
+    const r = radius ?? 10;
+    return { n: inView.filter((f) => milesBetween(me, f.geometry.coordinates as LngLat) <= r).length, r };
+  }, [me, radius, inView]);
+
   const radiusOn = !!(radius && distance);
   const radiusLabel = `within ${radius} mi${place ? ` of ${place.label}` : ""}`;
   const visible = useMemo(
@@ -135,8 +181,17 @@ export function App() {
   // The list follows the radius when one is set, otherwise the map viewport.
   const ranked = useMemo(() => {
     const pool = radiusOn || !bounds ? visible : visible.filter((f) => inBounds(f, bounds));
-    return [...pool].sort((a, b) => b.properties.d - a.properties.d);
-  }, [visible, bounds, radiusOn]);
+    const byDollars = (a: Location, b: Location) => b.properties.d - a.properties.d;
+    if (sort === "nearest" && distance) {
+      return [...pool].sort((a, b) => distance.get(a.properties.id)! - distance.get(b.properties.id)! || byDollars(a, b));
+    }
+    if (sort === "growth") {
+      // Locations with no prior-year record sort last, biggest buyers first among them.
+      const g = (f: Location) => percentChange(f.properties.d, f.properties.y[f.properties.y.length - 2]) ?? -Infinity;
+      return [...pool].sort((a, b) => g(b) - g(a) || byDollars(a, b));
+    }
+    return [...pool].sort(byDollars);
+  }, [visible, bounds, radiusOn, sort, distance]);
 
   const selected = useMemo(
     () => (selectedId ? visible.find((f) => f.properties.id === selectedId) ?? null : null),
@@ -192,26 +247,86 @@ export function App() {
     setFocusRequest({ kind: "bounds", bounds: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], nonce: Date.now() });
   };
 
-  // A row pans to its pin; zoom only far enough that pins are not clustered.
-  // Shareable links: #l=<license number> opens that location's card.
+  // Shareable links: #l=<license number> opens that location's card; v, min
+  // and r carry the view, minimum and radius so a link shows the same filter.
   const linked = useRef(false);
   useEffect(() => {
     if (!data || linked.current) return;
     linked.current = true;
-    const id = new URLSearchParams(location.hash.slice(1)).get("l");
+    const q = new URLSearchParams(location.hash.slice(1));
+    const v = q.get("v");
+    if (v === "stores" || v === "bars") setView(v);
+    const min = Number(q.get("min"));
+    if (min > 0) setMinDollars(min);
+    const s = q.get("s");
+    if (s === "growth" || s === "nearest") setSort(s);
+    const r = Number(q.get("r"));
+    if ((RADII as readonly number[]).includes(r)) setRadius(r);
+    const id = q.get("l");
     const f = id && data.locations.features.find((x) => x.properties.id === id);
     if (f) goTo(f);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   useEffect(() => {
     if (!data || !linked.current) return;
-    const url = `${location.pathname}${location.search}${selectedId ? `#l=${selectedId}` : ""}`;
-    history.replaceState(null, "", url);
-  }, [selectedId, data]);
+    const q = new URLSearchParams();
+    if (view !== "bars") q.set("v", view);
+    if (minDollars) q.set("min", String(minDollars));
+    if (radius && radius !== 10) q.set("r", String(radius)); // 10 mi is what locating picks anyway
+    if (sort !== "purchases") q.set("s", sort);
+    if (selectedId) q.set("l", selectedId);
+    const hash = q.toString();
+    history.replaceState(null, "", `${location.pathname}${location.search}${hash ? `#${hash}` : ""}`);
+  }, [selectedId, view, minDollars, radius, sort, data]);
+
+  // Recently opened locations, newest first, for the search palette.
+  const [recentIds, setRecentIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("stm.recent") ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    if (!selectedId) return;
+    setRecentIds((ids) => {
+      const next = [selectedId, ...ids.filter((x) => x !== selectedId)].slice(0, 5);
+      try {
+        localStorage.setItem("stm.recent", JSON.stringify(next));
+      } catch {
+        // storage blocked: recents last for this visit only
+      }
+      return next;
+    });
+  }, [selectedId]);
+  const recents = useMemo(
+    () =>
+      data
+        ? recentIds.flatMap((id) => data.locations.features.find((f) => f.properties.id === id) ?? [])
+        : [],
+    [data, recentIds],
+  );
+
+  const actions: QuickAction[] = [
+    { id: "bars", label: "Show on-premise bars", key: "b", run: () => changeView("bars") },
+    { id: "stores", label: "Show off-premise stores", key: "s", run: () => changeView("stores") },
+    { id: "locate", label: me ? "Re-center on my location" : "Show locations near me", key: "l", run: () => locate() },
+    { id: "min", label: "Clear the minimum", key: "c", run: () => setMinDollars(0) },
+    { id: "about", label: "About the numbers", key: "a", run: () => setAboutOpen(true) },
+  ];
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !aboutOpen) setSelectedId(null);
+      if (aboutOpen) return;
+      if (e.key === "Escape") return setSelectedId(null);
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      const a = actionsRef.current.find((x) => x.key === e.key.toLowerCase());
+      if (a) {
+        e.preventDefault();
+        a.run();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -227,7 +342,18 @@ export function App() {
   const padding: Padding = { top: 24, right: 24, bottom: controlsH + (desktop ? 32 : 24), left: 24 };
 
   const [one, many] = VIEW_LABEL[view].noun;
-  const count = ranked.length;
+  const shownRanked = FORCED_STATE === "empty" ? [] : ranked;
+  const shownCount = shownRanked.length;
+  const emptyText = `No ${many}${minDollars ? ` at ${shortDollars(minDollars)}+` : ""} ${radiusOn ? radiusLabel : "in this part of the map"}.`;
+  const clearFilters = () => {
+    setMinDollars(0);
+    setRadius(null);
+  };
+  const staleDays = useMemo(() => {
+    if (!data) return null;
+    const days = Math.floor((Date.now() - Date.parse(data.meta.licenseListDate)) / 86_400_000);
+    return FORCED_STATE === "stale" ? Math.max(days, STALE_DAYS + 1) : days > STALE_DAYS ? days : null;
+  }, [data]);
   const scope = radiusOn ? radiusLabel : "in view";
   const showList = desktop || listOpen;
 
@@ -235,7 +361,7 @@ export function App() {
     <div className={`app${selected ? " has-card" : ""}`}>
       <header className="header">
         <h1>Spirits Territory Map</h1>
-        <SearchBar search={search} onPick={pickSearch} />
+        <SearchBar search={search} onPick={pickSearch} actions={actions} recents={recents} />
         <button className="header-about label-sm" onClick={() => setAboutOpen(true)}>
           About
         </button>
@@ -260,7 +386,7 @@ export function App() {
             />
           )}
           {!data && (
-            <div className="loading small muted">{error ? `Could not load data. ${error}` : "Loading locations"}</div>
+            <div className="loading small muted">{error ? "Location data did not load." : slow ? "Loading locations" : ""}</div>
           )}
 
           <div className="controls" ref={controls}>
@@ -285,8 +411,20 @@ export function App() {
                 disabled={locating}
                 aria-pressed={!!me}
                 aria-label={me ? "Re-center on my location" : "Show locations near me"}
+                aria-describedby={nearMe?.n ? "locate-outcome" : undefined}
               >
-                <LocateIcon />
+                <span className="locate-icon">
+                  <LocateIcon />
+                </span>
+                <span className="locate-labels label-sm">
+                  <span className="locate-action">{me ? "Re-center" : "Near me"}</span>
+                  {/* Honest outcome: hidden when nothing is near. */}
+                  {nearMe?.n ? (
+                    <span className="locate-outcome" id="locate-outcome">
+                      {fmtCount(nearMe.n)} {nearMe.n === 1 ? one : many} in {nearMe.r} mi
+                    </span>
+                  ) : null}
+                </span>
               </button>
             </div>
             <div className="chips" role="group" aria-label="Location type">
@@ -301,9 +439,17 @@ export function App() {
 
         <aside className="sheet" aria-label="Locations">
           <div className="summary">
-            <p className="count" aria-live="polite">
-              {data ? `${count.toLocaleString("en-US")} ${count === 1 ? one : many} ${scope}` : "Loading"}
-            </p>
+            {data ? (
+              <p className="count" aria-live="polite">
+                {fmtCount(shownCount)} {shownCount === 1 ? one : many} {scope}
+              </p>
+            ) : error ? (
+              <p className="count">No locations</p>
+            ) : (
+              <p className="count skeleton-text" aria-busy="true">
+                <span className="sr-only">Loading locations</span>
+              </p>
+            )}
             {!desktop && data && !selected && (
               <button className="text-button label-sm" aria-expanded={listOpen} onClick={() => setListOpen((o) => !o)}>
                 {listOpen ? "Hide list" : "List"}
@@ -311,7 +457,21 @@ export function App() {
             )}
           </div>
           {data && (
-            <div className="chips min-chips" role="group" aria-label={`Minimum ${data.meta.purchaseYear} purchases`}>
+            <button className="disclosure label-sm" aria-expanded={minOpen} aria-controls="min-chips" onClick={toggleMin}>
+              <span>Minimum {data.meta.purchaseYear} purchases</span>
+              <span className={minDollars ? "disclosure-value on" : "disclosure-value"}>
+                {minDollars ? `${shortDollars(minDollars)}+` : "Any"}
+              </span>
+              <ChevronIcon />
+            </button>
+          )}
+          {data && minOpen && (
+            <div
+              id="min-chips"
+              className="chips min-chips"
+              role="group"
+              aria-label={`Minimum ${data.meta.purchaseYear} purchases`}
+            >
               {[0, ...MIN_OPTIONS[view]].map((c) => (
                 <button
                   key={c}
@@ -326,6 +486,33 @@ export function App() {
           )}
           {data && <Legend meta={data.meta} view={view} />}
           {notice && <p className="notice small">{notice}</p>}
+          {staleDays != null && (
+            <p className="notice small">
+              The MLCC license list is {fmtCount(staleDays)} days old. New licenses and recent closings may be
+              missing.
+            </p>
+          )}
+          {error && (
+            <div className="state">
+              <p className="small">
+                The location data did not load, so nothing is shown. Check the connection, then try again.
+              </p>
+              <button className="more label-sm" onClick={load}>
+                Try again
+              </button>
+            </div>
+          )}
+          {!data && !error && slow && (
+            <div className="skeleton" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div className="skeleton-row" key={i}>
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              ))}
+            </div>
+          )}
           {selected && data && rank ? (
             <LocationCard
               location={selected}
@@ -336,7 +523,21 @@ export function App() {
               onClose={() => setSelectedId(null)}
             />
           ) : (
-            data && showList && <RankedList ranked={ranked} onPick={pickRow} />
+            data &&
+            showList && (
+              <RankedList
+                ranked={shownRanked}
+                year={data.meta.purchaseYear}
+                priorYear={data.meta.years[data.meta.years.length - 2]}
+                onPick={pickRow}
+                emptyText={emptyText}
+                onClear={clearFilters}
+                sort={sort === "nearest" && !center ? "purchases" : sort}
+                onSort={setSort}
+                canSortNearest={!!center}
+                distance={distance}
+              />
+            )
           )}
           {(desktop || listOpen || selected) && (
             <p className="disclaimer small muted">

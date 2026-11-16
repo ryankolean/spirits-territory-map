@@ -21,6 +21,12 @@ export const LocateIcon = () => (
   </svg>
 );
 
+export const ChevronIcon = () => (
+  <svg {...base} width={16} height={16} className="chevron">
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
 export const CloseIcon = () => (
   <svg {...base}>
     <path d="M18 6 6 18" />

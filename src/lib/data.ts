@@ -51,14 +51,14 @@ export const VIEW_CLASSES: Record<View, LicenseClass[]> = {
 };
 
 export const VIEW_LABEL: Record<View, { chip: string; noun: [string, string] }> = {
-  bars: { chip: "Bars · On-premise", noun: ["bar", "bars"] },
-  stores: { chip: "Stores · Off-premise", noun: ["store", "stores"] },
+  bars: { chip: "On-premise bars", noun: ["bar", "bars"] },
+  stores: { chip: "Off-premise stores", noun: ["store", "stores"] },
 };
 
 export const CLASS_LABEL: Record<LicenseClass, string> = {
-  S: "SDD · Off-premise",
-  C: "Class C · On-premise",
-  H: "B-Hotel · On-premise",
+  S: "SDD, off-premise",
+  C: "Class C, on-premise",
+  H: "B-Hotel, on-premise",
 };
 
 export async function loadData(): Promise<{ locations: Locations; meta: Meta }> {

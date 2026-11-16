@@ -84,6 +84,13 @@ async function showList(page: Page) {
   await expect(page.locator(".ranked .row").first()).toBeVisible();
 }
 
+/** A minimum-dollar chip; opens the filter's disclosure if a rep folded it. */
+async function minChip(page: Page, label: string) {
+  const toggle = page.locator("button.disclosure");
+  if ((await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
+  return page.locator(".min-chips button.chip", { hasText: label });
+}
+
 /** Ids currently in the map's GeoJSON source (what the map draws). */
 async function sourceIds(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -262,7 +269,7 @@ test.describe("2. Near me: locate, radius ring, radius applies to map and list",
   test("a searched city becomes the radius center, and locating returns it to the rep", async ({ page }) => {
     await located(page);
     await page.locator(".search-input").fill("traverse ci");
-    await page.locator(".search-results li", { hasText: "City ·" }).first().click();
+    await page.locator(".search-results li", { hasText: "City," }).first().click();
     await expect(page.locator(".count")).toContainText("bars in view");
     await page.locator("button.chip", { hasText: /^10 mi$/ }).click();
     await mapIdle(page);
@@ -298,8 +305,8 @@ test.describe("2. Near me: locate, radius ring, radius applies to map and list",
 test.describe("3. Filters: license class and minimum dollars", () => {
   test("two taps from all locations to off-premise over $250k", async ({ page }) => {
     await located(page);
-    await page.locator("button.chip", { hasText: "Stores · Off-premise" }).click(); // tap 1
-    await page.locator(".min-chips button.chip", { hasText: "$250k+" }).click(); // tap 2
+    await page.locator("button.chip", { hasText: "Off-premise stores" }).click(); // tap 1
+    await (await minChip(page, "$250K+")).click(); // tap 2
     const expected = features.filter((f) => isStore(f) && f.properties.d >= 250_000 && within(f, 10));
     await expect(page.locator(".count")).toHaveText(`${expected.length.toLocaleString("en-US")} stores within 10 mi`);
     expect(new Set(await sourceIds(page))).toEqual(new Set(expected.map((f) => f.properties.id)));
@@ -310,14 +317,14 @@ test.describe("3. Filters: license class and minimum dollars", () => {
 
   test("bars view holds Class C and B-Hotel; stores view holds SDD; switching resets the minimum", async ({ page }) => {
     await located(page);
-    await page.locator(".min-chips button.chip", { hasText: "$100k+" }).click();
+    await (await minChip(page, "$100K+")).click();
     const bars = new Set(await sourceIds(page));
     for (const f of features.filter((x) => bars.has(x.properties.id))) {
       expect(isBar(f)).toBe(true);
       expect(f.properties.d).toBeGreaterThanOrEqual(100_000);
     }
-    await page.locator("button.chip", { hasText: "Stores · Off-premise" }).click();
-    await expect(page.locator(".min-chips button[aria-pressed=true]")).toHaveText("Any");
+    await page.locator("button.chip", { hasText: "Off-premise stores" }).click();
+    await expect(page.locator("button.disclosure .disclosure-value")).toHaveText("Any");
     for (const id of await sourceIds(page)) expect(features.find((f) => f.properties.id === id)!.properties.c).toBe("S");
   });
 });
@@ -467,7 +474,7 @@ test.describe("6. Search: business, city or license number, fuzzy, jumps the map
     await page.locator(".search-input").fill("TOT win");
     await expect(page.locator(".search-results li", { hasText: "TOTAL WINE" }).first()).toBeVisible();
     await page.locator(".search-input").fill("traverse ci");
-    const city = page.locator(".search-results li", { hasText: "City ·" }).first();
+    const city = page.locator(".search-results li", { hasText: "City," }).first();
     await expect(city).toContainText("Traverse City");
     await city.click();
     await mapIdle(page);

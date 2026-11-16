@@ -23,7 +23,7 @@ export function Legend({ meta, view }: Props) {
         </span>
       ))}
       <span>
-        {meta.purchaseYear} purchases · licenses as of {meta.licenseListDate}
+        {meta.purchaseYear} purchases. Licenses as of {meta.licenseListDate}.
       </span>
     </div>
   );

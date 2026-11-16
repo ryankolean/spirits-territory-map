@@ -6,7 +6,7 @@
   --surface-stone: #d1ccbd;
   --surface-oak: #382f2d;
   --ink: #382f2d;
-  --ink-muted: #6f6866;
+  --ink-muted: #67605e; /* brand #6f6866 darkened to 4.5:1 on --control */
   --ink-disabled: #888281;
   --ink-on-oak: #f5f3ef;
   --ink-on-stone: #382f2d;
@@ -15,14 +15,25 @@
   --rust: #a65238;
   --line: #d1ccbd;
   --line-strong: #382f2d;
-  --focus: var(--bronze);
+  --accent: var(--bronze);
+  --ink-on-accent: #f5f3ef;
+  --focus: var(--accent);
+
+  /* Surfaces, flat and layered: higher layers are lighter in both themes. */
+  --surface-0: var(--surface); /* page, map frame */
+  --surface-1: var(--surface-alt); /* docked sheet / side panel */
+  --surface-2: #ffffff; /* card, controls floating over the map */
+  --surface-3: #ffffff; /* popovers and dialogs */
+  --control: var(--surface-cream);
+  --control-on: var(--surface-stone);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --scrim: rgba(12, 8, 7, 0.5);
   --pin-tier-1: #dac1aa;
   --pin-tier-2: #b58254;
   --pin-tier-3: #a65238;
   --pin-tier-4: #382f2d;
   --pin-stroke: #ffffff;
-  --status-up: #4f6f52;
-  --status-down: var(--rust);
 
   --font-display: "Barlow Condensed", "Titling Gothic FB Compressed", "Arial Narrow", sans-serif;
   --font-wide: "Barlow", "Titling Gothic FB Wide", Arial, sans-serif;
@@ -35,7 +46,12 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
-  --shadow-sheet: 0 -2px 12px rgba(0, 0, 0, 0.16);
+  /* Type scale (ratio ~1.25): 12 / 14 / 16 / 20 / 28. Weights: 400 and 600 only. */
+  --fs-1: 12px;
+  --fs-2: 14px;
+  --fs-3: 16px;
+  --fs-4: 20px;
+  --fs-5: 28px;
   --panel-width: 360px;
   --header-h: 48px;
 
@@ -54,12 +70,15 @@
     --ink-disabled: #6f6866;
     --ink-on-stone: #1f1a19;
     --bronze: #dac1aa;
+    --ink-on-accent: #1f1a19;
+    --surface-2: #382f2d;
+    --surface-3: #433835;
+    --control: #2a2422;
     --rust: #d9825f;
     --line: #4a403d;
     --line-strong: #d1ccbd;
     --pin-tier-3: #a65238;
     --pin-stroke: #f5f3ef;
-    --status-up: #8fb58f;
     color-scheme: dark;
   }
 }
@@ -76,7 +95,7 @@ body,
 }
 
 body {
-  background: var(--surface);
+  background: var(--surface-0);
   color: var(--ink);
   font: 400 16px/1.6 var(--font-body);
   letter-spacing: 0.25px;
@@ -87,6 +106,10 @@ body {
 button {
   font: inherit;
   color: inherit;
+}
+
+strong {
+  font-weight: 600;
 }
 
 :focus-visible {
@@ -103,29 +126,27 @@ button {
 
 /* Type roles */
 .display-lg {
-  font: 300 25px/1.2 var(--font-display);
-  letter-spacing: 2px;
+  font: 400 var(--fs-5)/1.15 var(--font-display);
+  letter-spacing: 1px;
   text-transform: uppercase;
   margin: 0;
 }
 .heading-wide-sm {
-  font: 300 16px/1.75 var(--font-wide);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font: 600 var(--fs-2)/1.5 var(--font-wide);
+  letter-spacing: 0;
   margin: 0;
 }
 .label-sm {
-  font: 500 12px/1 var(--font-label);
-  letter-spacing: 1.9px;
-  text-transform: uppercase;
+  font: 400 var(--fs-2)/1.2 var(--font-label);
+  letter-spacing: 0.25px;
 }
 .number {
-  font: 600 28px/1.1 var(--font-body);
+  font: 600 var(--fs-5)/1.1 var(--font-body);
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 .small {
-  font: 400 12px/1.67 var(--font-body);
+  font: 400 var(--fs-1)/1.67 var(--font-body);
   letter-spacing: 0.25px;
 }
 .muted {
@@ -169,7 +190,7 @@ button {
   padding: 0 var(--space-2) 0 var(--space-4);
 }
 .header h1 {
-  font: 300 22px/1 var(--font-display);
+  font: 400 var(--fs-4)/1 var(--font-display);
   letter-spacing: 2px;
   text-transform: uppercase;
   margin: 0;
@@ -202,12 +223,11 @@ button {
   width: 100%;
   height: 36px;
   padding: 0 var(--space-3);
-  border: 0;
-  border-bottom: 1px solid var(--ink-on-oak);
-  border-radius: 4px;
-  background: var(--surface);
+  border: 1px solid var(--ink-on-oak);
+  border-radius: 0;
+  background: var(--surface-3);
   color: var(--ink);
-  font: 400 16px/1 var(--font-body);
+  font: 400 var(--fs-3)/1 var(--font-body);
 }
 .search-input::placeholder {
   color: var(--ink-muted);
@@ -220,9 +240,8 @@ button {
   margin: 0;
   padding: 0;
   list-style: none;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  box-shadow: var(--shadow-sheet);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
   z-index: 10;
   max-height: 60vh;
   overflow-y: auto;
@@ -232,16 +251,54 @@ button {
   flex-direction: column;
   gap: 2px;
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   color: var(--ink);
 }
 .search-results li[aria-selected="true"],
 .search-results li:hover {
-  background: var(--surface-cream);
+  background: var(--control);
+}
+.search-hint {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-family: var(--font-label);
+  pointer-events: none;
+}
+.search-input:focus + .search-hint,
+.search-input:not(:placeholder-shown) + .search-hint {
+  display: none;
+}
+@media (hover: none), (max-width: 767px) {
+  .search-hint {
+    display: none;
+  }
+}
+.search-results li.group-label {
+  cursor: default;
+  padding-bottom: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.action-row kbd {
+  min-width: 20px;
+  text-align: center;
+  border: 1px solid var(--border);
+  font-family: var(--font-label);
 }
 .sr-name {
-  font: 400 16px/1.3 var(--font-body);
+  font: 400 var(--fs-3)/1.3 var(--font-body);
 }
 
 /* Mobile: map above a docked sheet. The sheet never overlaps the map: a
@@ -271,7 +328,7 @@ button {
   bottom: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   pointer-events: none;
   z-index: 2;
 }
@@ -299,9 +356,9 @@ button {
 
 .chip {
   appearance: none;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: 0;
-  background: var(--surface-cream);
+  background: var(--control);
   color: var(--ink);
   min-height: 44px;
   padding: 0 var(--space-3);
@@ -309,30 +366,75 @@ button {
   cursor: pointer;
 }
 .chip:hover {
-  border-color: var(--line-strong);
+  border-color: var(--border-strong);
 }
 .chip[aria-pressed="true"] {
-  background: var(--surface-stone);
+  font-weight: 600;
+  background: var(--control-on);
   color: var(--ink-on-stone);
-  border-color: var(--line-strong);
+  border-color: var(--border-strong);
 }
 
 .locate {
   appearance: none;
   flex: none;
-  width: 48px;
   height: 48px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--ink);
-  display: grid;
-  place-items: center;
+  padding: 0 var(--space-4) 0 var(--space-3);
+  border-radius: 24px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--ink-on-accent);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   cursor: pointer;
 }
+.locate-icon {
+  display: grid;
+  transition: transform 200ms ease-out;
+}
+/* Action and outcome share one grid cell, so the button keeps the wider label's width. */
+.locate-labels {
+  display: grid;
+  text-align: left;
+}
+.locate-labels > * {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  transition: opacity 150ms ease-out;
+}
+.locate-outcome {
+  opacity: 0;
+}
+@media (hover: hover) {
+  .locate:is(:hover, :focus-visible) .locate-outcome {
+    opacity: 1;
+  }
+  .locate:is(:hover, :focus-visible):has(.locate-outcome) .locate-action {
+    opacity: 0;
+  }
+  .locate:hover .locate-icon {
+    animation: locate-spin 2.4s linear infinite;
+  }
+}
+/* Touch has no hover: show the outcome as a sub-label under the action. */
+@media (hover: none) {
+  .locate-labels > * {
+    grid-area: auto;
+  }
+  .locate-outcome {
+    opacity: 1;
+    font-size: var(--fs-1);
+  }
+}
+@keyframes locate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Located: same primary fill, plus a ring so the state does not rest on color. */
 .locate[aria-pressed="true"] {
-  background: var(--surface-stone);
-  color: var(--ink-on-stone);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--accent);
 }
 .locate:disabled {
   opacity: 0.6;
@@ -345,12 +447,10 @@ button {
   flex: none;
   max-height: 60%;
   overflow-y: auto;
-  background: var(--surface-alt);
-  border-top: 1px solid var(--line-strong);
-  box-shadow: var(--shadow-sheet);
+  background: var(--surface-1);
+  border-top: 1px solid var(--border-strong);
   padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom));
   z-index: 3;
-  transition: max-height 250ms ease-out;
 }
 
 .summary {
@@ -360,9 +460,9 @@ button {
   gap: var(--space-3);
 }
 .summary .count {
-  font: 300 20px/1.2 var(--font-display);
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  font: 400 var(--fs-4)/1.2 var(--font-display);
+  letter-spacing: 0.5px;
   margin: 0;
 }
 
@@ -376,19 +476,97 @@ button {
   cursor: pointer;
 }
 
+.disclosure {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin-top: var(--space-3);
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.disclosure-value {
+  margin-left: auto;
+  color: var(--ink);
+}
+.disclosure-value.on {
+  font-weight: 600;
+}
+.disclosure .chevron {
+  transition: transform 150ms ease-out;
+}
+.disclosure[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
 .min-chips {
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
   flex-wrap: wrap; /* five chips overflow the 360px panel and a phone's sheet */
 }
 .min-chips .chip {
   min-height: 36px;
 }
 
+/* Sort and column header stay in view while the list scrolls in the sheet. */
+.list-top {
+  position: sticky;
+  top: calc(-1 * var(--space-3));
+  z-index: 1;
+  margin-top: var(--space-5);
+  padding-top: var(--space-2);
+  background: var(--surface-1);
+}
+@media (min-width: 992px) {
+  .list-top {
+    top: calc(-1 * var(--space-5));
+  }
+}
+.sort {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.sort .muted {
+  margin-right: var(--space-1);
+}
+.sort-btn {
+  appearance: none;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.sort-btn:hover {
+  border-color: var(--border);
+}
+.sort-btn[aria-pressed="true"] {
+  font-weight: 600;
+  color: var(--ink);
+  border-color: var(--border-strong);
+}
+.ranked-head {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-strong);
+}
+.ranked-head .num-head {
+  text-align: right;
+}
 .ranked {
   list-style: none;
-  margin: var(--space-3) 0 0;
+  margin: 0;
   padding: 0;
-  border-top: 1px solid var(--line);
 }
 .ranked .row {
   appearance: none;
@@ -399,17 +577,18 @@ button {
   gap: var(--space-2);
   padding: var(--space-3) 0;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
   background: transparent;
   text-align: left;
   cursor: pointer;
   min-height: 44px;
 }
 .ranked .row:hover {
-  background: var(--surface-cream);
+  background: var(--control);
 }
 .row-rank {
   color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 .row-main {
   display: flex;
@@ -417,10 +596,14 @@ button {
   min-width: 0;
 }
 .row-name {
-  font: 400 16px/1.3 var(--font-body);
+  font: 400 var(--fs-3)/1.3 var(--font-body);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Keyboard users see the full name of a truncated row. */
+.row:focus-visible .row-name {
+  white-space: normal;
 }
 .row-figure {
   display: flex;
@@ -429,21 +612,21 @@ button {
   gap: 2px;
 }
 .row-num {
-  font: 600 16px/1.2 var(--font-body);
+  font: 600 var(--fs-3)/1.2 var(--font-body);
   font-variant-numeric: tabular-nums;
 }
 .delta {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font: 500 13px/1 var(--font-label);
-  letter-spacing: 1px;
+  font: 400 var(--fs-1)/1 var(--font-label);
+  letter-spacing: 0.25px;
+  font-variant-numeric: tabular-nums;
 }
-.delta.up {
-  color: var(--status-up);
-}
+/* Direction reads from the arrow and the sign. Rust is a pin tier, so it never means "down". */
+.delta.up,
 .delta.down {
-  color: var(--status-down);
+  color: var(--ink);
 }
 .delta.flat {
   color: var(--ink-muted);
@@ -453,13 +636,54 @@ button {
   width: 100%;
   min-height: 44px;
   margin-top: var(--space-2);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--ink);
   cursor: pointer;
 }
 .list-empty {
-  margin: var(--space-3) 0 0;
+  margin: 0;
+}
+.state {
+  margin-top: var(--space-5);
+}
+/* Loading skeleton: same grid and row height as the ranked list. */
+.skeleton-text::before {
+  content: "";
+  display: block;
+  width: 60%;
+  margin: 5px 0;
+}
+.skeleton {
+  margin-top: var(--space-5);
+}
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 72px;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: 66px;
+  border-bottom: 1px solid var(--border);
+}
+.skeleton-row span,
+.skeleton-text::before {
+  height: 14px;
+  background: var(--control);
+  animation: skeleton-pulse 1.2s ease-in-out infinite alternate;
+}
+.skeleton-row span:first-child {
+  width: 16px;
+}
+@keyframes skeleton-pulse {
+  to {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-row span,
+  .skeleton-text::before {
+    animation: none !important;
+  }
 }
 
 .legend {
@@ -467,7 +691,7 @@ button {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-3);
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 .legend .tier {
   display: inline-flex;
@@ -479,7 +703,7 @@ button {
   height: 12px;
   border-radius: 50%;
   border: 2px solid var(--pin-stroke);
-  box-shadow: 0 0 0 1px var(--line);
+  box-shadow: 0 0 0 1px var(--border);
 }
 .disclaimer {
   margin: var(--space-2) 0 0;
@@ -498,7 +722,7 @@ button {
     width: var(--panel-width);
     max-height: none;
     border-top: 0;
-    border-left: 1px solid var(--line-strong);
+    border-left: 1px solid var(--border-strong);
     padding: var(--space-5);
   }
   .controls {
@@ -513,9 +737,9 @@ button {
 
 /* Location card */
 .card {
-  margin-top: var(--space-3);
-  background: var(--surface-alt);
-  border: 1px solid var(--line-strong);
+  margin-top: var(--space-5);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
   padding: var(--space-4);
   position: relative;
 }
@@ -525,7 +749,7 @@ button {
   }
 }
 .card .eyebrow {
-  color: var(--bronze);
+  color: var(--ink-muted);
   display: block;
   margin-bottom: var(--space-2);
   padding-right: 44px;
@@ -544,7 +768,7 @@ button {
 }
 .card hr {
   border: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   margin: var(--space-3) 0;
 }
 .card .figure {
@@ -554,23 +778,31 @@ button {
   gap: var(--space-3);
 }
 .card .delta {
-  font-size: 14px;
+  font-size: var(--fs-2);
 }
 .card .trend {
-  margin-top: var(--space-3);
+  margin-top: var(--space-5);
 }
-.card .trend-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+.card .trend .heading-wide-sm {
+  margin-bottom: var(--space-2);
 }
-.card .years {
-  display: flex;
-  justify-content: space-between;
-  width: 150px;
+.card .trend svg {
+  display: block;
+}
+.trend-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.trend-table th,
+.trend-table td {
+  padding: 0;
+  text-align: center;
+  font-weight: 400;
 }
 .card .rank {
-  margin-top: var(--space-3);
+  margin-top: var(--space-1);
   color: var(--ink-muted);
   display: block;
 }
@@ -595,7 +827,7 @@ button {
   gap: var(--space-5);
   align-items: center;
   margin-top: var(--space-2);
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
   padding-top: var(--space-1);
 }
 .card-links a {
@@ -626,14 +858,13 @@ button {
   width: calc(100% - 32px);
   max-height: calc(100% - 48px);
   padding: var(--space-5);
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--border-strong);
   border-radius: 0;
-  background: var(--surface-alt);
+  background: var(--surface-3);
   color: var(--ink);
-  box-shadow: var(--shadow-sheet);
 }
 .about::backdrop {
-  background: rgba(12, 8, 7, 0.5);
+  background: var(--scrim);
 }
 .about h2 {
   padding-right: 44px;
@@ -674,5 +905,35 @@ button {
 }
 
 .maplibregl-ctrl-attrib {
-  font: 400 11px/1.4 var(--font-body);
+  font: 400 var(--fs-1)/1.4 var(--font-body);
+}
+/* Attribution follows the theme instead of MapLibre's fixed white. */
+.maplibregl-ctrl.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--ink);
+}
+.maplibregl-ctrl-attrib-button {
+  background-color: var(--surface-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locate-icon {
+    animation: none !important;
+  }
+}
+
+/* Focused rows clear the sticky sort header (WCAG 2.4.11). */
+.ranked .row {
+  scroll-margin-top: 104px;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --ink-muted: var(--ink);
+    --border: var(--border-strong);
+  }
 }

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { CLASS_LABEL, type Location, type Meta } from "../lib/data";
-import { percentChange, titleCase } from "../lib/format";
+import { dollars as full, percentChange, shortDollars, signedPercent, titleCase } from "../lib/format";
 import { ArrowDownRight, ArrowUpRight, CloseIcon, Dash } from "./Icons";
 import { Sparkline } from "./Sparkline";
+
+const TREND_W = 280;
 
 interface Props {
   location: Location;
@@ -13,7 +15,6 @@ interface Props {
   onClose: () => void;
 }
 
-const full = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose }: Props) {
   const p = location.properties;
@@ -36,11 +37,19 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
     }
   };
 
+  // Trend takeaway: change from the first year with a record to the latest.
+  const firstIdx = p.y.findIndex((v) => v != null && v > 0);
+  const since = firstIdx >= 0 && firstIdx < p.y.length - 1 ? percentChange(p.d, p.y[firstIdx]) : null;
+  const trendTitle =
+    since == null
+      ? `Purchases by year, ${meta.years[0]} to ${meta.purchaseYear}`
+      : `${signedPercent(since, 0)} since ${meta.years[firstIdx]}`;
+
   let delta;
   if (change == null) {
     delta = (
       <span className="delta flat">
-        <Dash /> {prior == null ? `No ${priorYear} record` : `${full(0)} in ${priorYear}`}
+        <Dash /> {prior == null ? `No ${priorYear} record` : `${full(prior)} in ${priorYear}`}
       </span>
     );
   } else {
@@ -48,8 +57,7 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
     delta = (
       <span className={`delta ${dir}`}>
         {dir === "up" ? <ArrowUpRight /> : dir === "down" ? <ArrowDownRight /> : <Dash />}
-        {Math.abs(change).toFixed(1)}%
-        <span className="sr-only"> vs {priorYear}</span>
+        {signedPercent(change, 1)} vs {priorYear}
       </span>
     );
   }
@@ -61,7 +69,8 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
       </button>
       <span className="eyebrow label-sm">
         {CLASS_LABEL[p.c]}
-        {p.r ? " · Resort" : ""} · <span className="nowrap">{p.id}</span>
+        {p.r ? ", resort" : ""}.
+        <span className="nowrap"> License {p.id}</span>
       </span>
       <h2 id="card-name" className="name display-lg">
         {p.n}
@@ -73,6 +82,9 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
         <span className="number">{full(p.d)}</span>
         {delta}
       </div>
+      <span className="rank label-sm">
+        #{rank} of {rankOf} {rankScope}
+      </span>
       <p className="small muted note">
         {meta.purchaseYear} spirits bought from the MLCC, wholesale dollars.
         {change != null && ` ${priorYear}: ${full(prior!)}.`}
@@ -88,21 +100,31 @@ export function LocationCard({ location, meta, rank, rankOf, rankScope, onClose 
         </p>
       )}
       <div className="trend">
-        <h3 className="heading-wide-sm">Five-year trend</h3>
-        <div className="trend-row">
-          <div>
-            <Sparkline values={p.y} />
-            <div className="years small muted">
+        <h3 className="heading-wide-sm">{trendTitle}</h3>
+        <Sparkline values={p.y} width={TREND_W} />
+        {/* Direct labels under each point; also the chart's data alternative. */}
+        <table className="trend-table small" style={{ width: TREND_W }}>
+          <caption className="sr-only">Spirits purchases by year, wholesale dollars</caption>
+          <thead>
+            <tr>
               {meta.years.map((y) => (
-                <span key={y}>'{String(y).slice(2)}</span>
+                <th key={y} scope="col" className="muted">
+                  {y}
+                </th>
               ))}
-            </div>
-          </div>
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {p.y.map((v, i) => (
+                <td key={meta.years[i]} title={v == null ? undefined : full(v)}>
+                  {v == null ? "None" : shortDollars(v)}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <span className="rank label-sm">
-        #{rank} of {rankOf} {rankScope}
-      </span>
       {p.q === 0 && (
         <p className="small muted note">Pin placed at the ZIP code center; the street address did not geocode.</p>
       )}

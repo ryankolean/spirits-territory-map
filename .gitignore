@@ -8,6 +8,7 @@ __pycache__/
 
 # Source workbooks and PDFs (about 30 MB); `make download` re-fetches them.
 data/raw/
+data/raw-archive/
 *.tsbuildinfo
 playwright-report/
 test-results/

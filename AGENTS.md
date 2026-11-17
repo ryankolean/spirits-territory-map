@@ -18,3 +18,4 @@
 - Verification: `npx playwright test` (six-feature acceptance suite). `window.__map` is exposed in dev builds and with `?e2e`; wait on `areTilesLoaded()`.
 - Join the master list on license number AND type; numbers repeat across types (SDD or Class C sharing with an SDM). Run `make crosscheck` after any pipeline change and read `docs/VALIDATION.md`.
 - Never measure map frame rate in default headless Chrome (software WebGL); the `phone-gpu` project uses the real GPU.
+- Annual data refresh (new MLCC year): follow `docs/ANNUAL_REFRESH.md`. It always ends in a PR; never merge or push to main.

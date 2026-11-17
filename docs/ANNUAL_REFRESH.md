@@ -16,6 +16,8 @@ Embedded file dates from the copies in `data/raw`:
 | 2024 | PDF | Jan 25-27, 2025 | Last report from the old mainframe |
 | 2025 | Excel | Mar 6-11, 2026 | First year from the new licensing system. The page was first archived Apr 11, 2026 |
 
+MLCC also re-posts past years without notice. On Aug 17, 2026, all eight 2021 and 2022 PDFs were re-uploaded as tagged PDFs exported from Word, so the server dates on those files changed. Their totals still reconcile to the printed footers, and every file on the site matched the Oct 21, 2026 download byte for byte. Treat any older year as able to change.
+
 Check dates for the 2026 data are Jan 29, Mar 15, Apr 15 and May 17, 2027. Each one is an all-day calendar task titled `[spirits-territory-map] ...` that names SUMMIT-446.
 
 ## Step 0: is the year out?
@@ -42,6 +44,13 @@ Nothing already on the map may be lost.
 
 Add the new year to `YEARS` in `pipeline/stm/build.py`, then run `make download`. It fetches every year page in `YEARS` and both license lists. If an older year page now returns nothing, the step 1 snapshot still holds its files; restore them from there.
 
+**Revised past years.** Compare every re-downloaded file against its step 1 snapshot with `shasum`. A hash change by itself is not a revision; the 2021 and 2022 re-exports changed the bytes only. For each file whose hash changed:
+
+1. Parse the old copy and the new copy, then compare per `(license, class)` value and the printed totals.
+2. If the values match, it is a format-only re-post. Use the new file and say so in the PR.
+3. If any value changed, MLCC revised the data. Do not overwrite anything. Build the map from the snapshot's values for that year. Write the differences (license, old value, new value, totals before and after) to `docs/REVISIONS-<year>.md`, and ask in the PR whether to adopt them. Adopting them is a separate commit, made only after Ryan approves.
+4. If a new file no longer parses, or its totals don't reconcile, keep the snapshot copy and flag it in the PR.
+
 Read every new file before writing code. Note the format (Excel or PDF), the sheets and the columns, the totals rows, the month columns, and how license numbers look. Compare all of it with `docs/DATA.md`.
 
 ## Step 3: make the pipeline take the new year
@@ -62,6 +71,7 @@ The pipeline was written with 2025 as the newest year. Today the latest year com
 1. `make build`, then `make crosscheck`. Read the new `docs/VALIDATION.md`. Business-ID agreement on the join must stay at 100%.
 2. **No-loss check** against the step 1 snapshot. Write it as a script in `pipeline/stm/` so later years reuse it:
    - every license in the new file that was also in the snapshot has the same values for every year the snapshot had;
+   - any mismatch has to be explained by a revision written up in `docs/REVISIONS-<year>.md`, and none is adopted without Ryan's approval;
    - the `years` array only grows: every old year is still present, in order;
    - every license in the snapshot but not in the new file is listed with its reason (closed, dropped from the master list, or not placed), and the PR includes the counts.
 3. New year totals per class reconcile to MLCC's own total rows, or to the sum of rows where MLCC gives none. Record them in `docs/DATA.md`.
